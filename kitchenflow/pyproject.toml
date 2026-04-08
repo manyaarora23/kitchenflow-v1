@@ -23,6 +23,7 @@ server = "kitchenflow_env.server.app:main"
 [tool.setuptools]
 include-package-data = true
 packages = ["kitchenflow_env", "kitchenflow_env.server"]
+package-dir = {"kitchenflow_env" = "kitchenflow_env", "kitchenflow_env.server" = "kitchenflow_env/server"}
 package-dir = { 
     "kitchenflow_env" = "kitchenflow_env", 
     "kitchenflow_env.server" = "kitchenflow_env/server" 
