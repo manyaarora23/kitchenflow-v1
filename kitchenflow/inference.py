@@ -18,6 +18,7 @@ Structured output format (required by validator):
     [START] task=TASK_ID
     [STEP] step=N reward=R score=S done=true/false
     [END] task=TASK_ID score=S steps=N
+    Scores are strictly in (0, 1) — never 0.0 or 1.0.
 """
 
 import argparse
@@ -47,16 +48,16 @@ SYSTEM_PROMPT = textwrap.dedent("""
     whether to summon a driver for each order.
 
     Physics:
-    - Driver speed = 30 km/h ÷ traffic_index  (in km per minute: 0.5 / traffic_index)
-    - Driver ETA (minutes) = driver_dist_km ÷ (0.5 / traffic_index)
-    - Food cools at 1.8°C/minute while waiting; perfect temp = 75°C
+    - Driver speed = 30 km/h / traffic_index  (in km per minute: 0.5 / traffic_index)
+    - Driver ETA (minutes) = driver_dist_km / (0.5 / traffic_index)
+    - Food cools at 1.8 degrees C/minute while waiting; perfect temp = 75 degrees C
     - Once summoned, a driver cannot be un-summoned
 
     Strategy:
-    - Summon driver when: food_ready_min - current_time ≈ driver_eta_min
+    - Summon driver when: food_ready_min - current_time approximately equals driver_eta_min
     - i.e. dispatch so driver arrives just as food is bagged
-    - food_ready_min ≈ current_time + (1 - food_prep_progress) × prep_time_min
-    - (prep_time is NOT shown — infer it from food_prep_progress vs time)
+    - food_ready_min approximately equals current_time + (1 - food_prep_progress) x prep_time_min
+    - (prep_time is NOT shown -- infer it from food_prep_progress vs time)
 
     Reply with ONLY a valid JSON object:
     {"dispatch_decisions": {"ORD001": 0, "ORD002": 1}}
@@ -83,14 +84,14 @@ def build_prompt(obs: dict) -> str:
             f"  {o['order_id']} | {o['item_name']}"
             f" | prep={o['food_prep_progress']*100:.0f}%"
             f" | dist={o['driver_dist_km']:.2f}km ({eta_str})"
-            f" | temp={o['food_temp_c']:.1f}°C"
+            f" | temp={o['food_temp_c']:.1f}C"
             f" | food_ready={'YES' if o['food_ready'] else 'no'}"
             f" | driver_arrived={'YES' if o['driver_arrived'] else 'no'}"
         )
         if o["driver_arrived"] and not o["food_ready"]:
-            lines.append(f"    ⚠️  DRIVER WAITING {o['minutes_driver_waited']}min — dispatch soon!")
+            lines.append(f"    WARNING: DRIVER WAITING {o['minutes_driver_waited']}min")
         if o["food_ready"] and not o["driver_summoned"]:
-            lines.append(f"    🔥 FOOD READY but NO driver summoned — food getting cold!")
+            lines.append(f"    WARNING: FOOD READY but NO driver summoned")
 
     if obs.get("last_action_feedback") and obs.get("attempts", 0) > 1:
         lines += ["", f"LAST EVENT: {obs['last_action_feedback'][-200:]}"]
@@ -117,6 +118,13 @@ def call_llm(client: OpenAI, prompt: str) -> dict:
         return json.loads(text)
     except json.JSONDecodeError:
         return {"dispatch_decisions": {}}
+
+
+# ── Score clamper — validator requires strictly (0, 1), never 0.0 or 1.0 ──────
+
+def _clamp(score: float) -> float:
+    """Clamp score to strictly open interval (0, 1): never 0.0, never 1.0."""
+    return max(0.001, min(0.999, float(score)))
 
 
 # ── HTTP Client ───────────────────────────────────────────────────────────────
@@ -173,7 +181,7 @@ def run_task(client: OpenAI, env: EnvClient, task_id: str) -> float:
     obs      = env.reset(task_id=task_id)
     max_mins = obs.get("max_time_min", 30)
 
-    # ── Required structured output: START ──
+    # Required structured output: START
     print(f"[START] task={task_id}", flush=True)
 
     best_score = 0.0
@@ -193,16 +201,17 @@ def run_task(client: OpenAI, env: EnvClient, task_id: str) -> float:
 
         try:
             obs = env.step(action_data)
-        except RuntimeError as exc:
-            print(f"[STEP] step={step_num} reward=0.0 score=0.0 done=true", flush=True)
+        except RuntimeError:
+            score_out = _clamp(best_score)
+            print(f"[STEP] step={step_num} reward=0.0010 score={score_out:.4f} done=true", flush=True)
             break
 
         reward     = obs.get("reward", 0.0)
-        score      = obs.get("score", 0.0)
+        score      = _clamp(obs.get("score", 0.0))
         done       = obs.get("done", False)
         best_score = max(best_score, score)
 
-        # ── Required structured output: STEP ──
+        # Required structured output: STEP
         print(
             f"[STEP] step={step_num} reward={reward:.4f} score={score:.4f} "
             f"done={'true' if done else 'false'}",
@@ -213,10 +222,12 @@ def run_task(client: OpenAI, env: EnvClient, task_id: str) -> float:
             best_score = max(best_score, score)
             break
 
-    # ── Required structured output: END ──
-    print(f"[END] task={task_id} score={best_score:.4f} steps={step_num}", flush=True)
+    final_score = _clamp(best_score)
 
-    return best_score
+    # Required structured output: END
+    print(f"[END] task={task_id} score={final_score:.4f} steps={step_num}", flush=True)
+
+    return final_score
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -243,10 +254,11 @@ def main():
             scores[tid] = run_task(llm, env, tid)
         except Exception as exc:
             # Still emit valid structured blocks even on error
+            fallback = _clamp(0.001)
             print(f"[START] task={tid}", flush=True)
-            print(f"[STEP] step=1 reward=0.0 score=0.0 done=true", flush=True)
-            print(f"[END] task={tid} score=0.0 steps=1", flush=True)
-            scores[tid] = 0.0
+            print(f"[STEP] step=1 reward=0.0010 score={fallback:.4f} done=true", flush=True)
+            print(f"[END] task={tid} score={fallback:.4f} steps=1", flush=True)
+            scores[tid] = fallback
 
     elapsed = time.time() - start
     avg     = sum(scores.values()) / len(scores) if scores else 0.0
