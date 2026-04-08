@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KitchenFlow-v1 — Ghost Kitchen Dispatcher</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #f0f0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .hero {
+      text-align: center;
+      max-width: 720px;
+      width: 100%;
+    }
+
+    .emoji { font-size: 4rem; margin-bottom: 1rem; display: block; }
+
+    h1 {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 700;
+      background: linear-gradient(135deg, #ff6b35, #f7c59f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.75rem;
+    }
+
+    .tagline {
+      color: #aaa;
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .tagline em {
+      color: #f7c59f;
+      font-style: normal;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 3rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #ff6b35, #e05520);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #1e1e1e;
+      color: #f0f0f0;
+      border: 1px solid #333;
+    }
+
+    .btn-hf {
+      background: #ffca28;
+      color: #111;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      max-width: 720px;
+      margin-bottom: 3rem;
+    }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 1.25rem;
+      text-align: left;
+    }
+
+    .card-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .easy   { background: #1a3d1a; color: #4ade80; }
+    .medium { background: #3d2e0a; color: #fbbf24; }
+    .hard   { background: #3d0f0f; color: #f87171; }
+
+    .card h3 { font-size: 0.9rem; color: #ddd; margin-bottom: 0.25rem; }
+    .card p  { font-size: 0.8rem; color: #777; }
+
+    .api-section {
+      width: 100%;
+      max-width: 720px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      text-align: left;
+    }
+
+    .api-section h2 {
+      font-size: 1rem;
+      color: #aaa;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    pre {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      color: #a8d8a8;
+      line-height: 1.5;
+    }
+
+    footer {
+      color: #555;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    footer a { color: #ff6b35; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <span class="emoji">🍔</span>
+    <h1>KitchenFlow-v1</h1>
+    <p class="tagline">
+      Ghost Kitchen Dispatcher — An <em>OpenEnv</em> environment where an AI agent
+      times driver dispatch to keep food hot and customers happy.
+    </p>
+
+    <div class="buttons">
+      <!-- UPDATE THESE URLS after deploying -->
+      <a class="btn btn-hf" href="https://huggingface.co/spaces/YOUR_HF_USERNAME/kitchenflow-v1" target="_blank">
+        🤗 Live API (HF Spaces)
+      </a>
+      <a class="btn btn-primary" href="https://huggingface.co/spaces/YOUR_HF_USERNAME/kitchenflow-v1/docs" target="_blank">
+        📖 Swagger UI
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/YOUR_GITHUB_USERNAME/kitchenflow-v1" target="_blank">
+        ⭐ GitHub
+      </a>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card-badge easy">Easy</span>
+        <h3>T1 — Single Order</h3>
+        <p>1 order · Stable traffic · 30 min</p>
+      </div>
+      <div class="card">
+        <span class="card-badge medium">Medium</span>
+        <h3>T2 — Multi Order</h3>
+        <p>3 orders · Varying traffic · 35 min</p>
+      </div>
+      <div class="card">
+        <span class="card-badge hard">Hard</span>
+        <h3>T3 — Peak Hour</h3>
+        <p>5 orders · Traffic spike · 45 min</p>
+      </div>
+    </div>
+
+    <div class="api-section">
+      <h2>Quick Start</h2>
+      <pre>
+# 1. Start an episode
+curl -X POST https://YOUR_HF_USERNAME-kitchenflow-v1.hf.space/reset \
+  -H 'Content-Type: application/json' \
+  -d '{"task_id": "T1_single_order_dispatch"}'
+
+# 2. Dispatch a driver
+curl -X POST https://YOUR_HF_USERNAME-kitchenflow-v1.hf.space/step \
+  -H 'Content-Type: application/json' \
+  -d '{"action": {"dispatch_decisions": {"ORD001": 1}}, "episode_id": "..."}'</pre>
+    </div>
+
+    <footer>
+      Built with <a href="https://github.com/meta-pytorch/OpenEnv">OpenEnv</a> ·
+      Deployed on <a href="https://huggingface.co/spaces">Hugging Face Spaces</a>
+    </footer>
+  </div>
+</body>
+</html>
