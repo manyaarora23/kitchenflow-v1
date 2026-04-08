@@ -1,0 +1,13 @@
+name: kitchenflow-env
+version: 1.0
+
+environment:
+  dockerfile: Dockerfile
+
+entrypoint:
+  inference: inference.py
+
+apis:
+  reset: /reset
+  step: /step
+  action_space: /action_space
