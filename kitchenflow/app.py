@@ -24,7 +24,7 @@ from fastapi import Body, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 
 try:
-    from ..models import KitchenAction, KitchenObservation
+    from .models import KitchenAction, KitchenObservation
     from .kitchenflow_env_environment import KitchenflowEnvironment, TASKS
 except (ModuleNotFoundError, ImportError):
     from models import KitchenAction, KitchenObservation
