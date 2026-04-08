@@ -13,6 +13,11 @@ Usage:
     python inference.py
     python inference.py --url http://localhost:7860
     python inference.py --task T1_single_order_dispatch
+
+Structured output format (required by validator):
+    [START] task=TASK_ID
+    [STEP] step=N reward=R score=S done=true/false
+    [END] task=TASK_ID score=S steps=N
 """
 
 import argparse
@@ -165,55 +170,51 @@ class EnvClient:
 # ── Task runner ───────────────────────────────────────────────────────────────
 
 def run_task(client: OpenAI, env: EnvClient, task_id: str) -> float:
-    print(f"\n{'─'*62}")
-    print(f"  Task : {task_id}")
-    print(f"{'─'*62}")
-
     obs      = env.reset(task_id=task_id)
     max_mins = obs.get("max_time_min", 30)
-    n_orders = len(obs.get("orders", []))
 
-    print(f"  Orders: {n_orders} | Time limit: {max_mins} min")
-    for o in obs.get("orders", []):
-        print(f"    {o['order_id']} {o['item_name']} — "
-              f"driver {o['driver_dist_km']}km away")
+    # ── Required structured output: START ──
+    print(f"[START] task={task_id}", flush=True)
 
     best_score = 0.0
+    step_num   = 0
 
     for minute in range(1, max_mins + 1):
         if obs.get("done", False):
             break
 
+        step_num += 1
         prompt = build_prompt(obs)
+
         try:
             action_data = call_llm(client, prompt)
-        except Exception as exc:
-            print(f"  [min{minute}] LLM error: {exc}")
+        except Exception:
             action_data = {"dispatch_decisions": {}}
 
         try:
             obs = env.step(action_data)
         except RuntimeError as exc:
-            print(f"  [min{minute}] Step error: {exc}")
+            print(f"[STEP] step={step_num} reward=0.0 score=0.0 done=true", flush=True)
             break
 
-        score   = obs.get("score", 0.0)
-        reward  = obs.get("reward", 0.0)
+        reward     = obs.get("reward", 0.0)
+        score      = obs.get("score", 0.0)
+        done       = obs.get("done", False)
         best_score = max(best_score, score)
 
-        # Print only interesting minutes
-        fb = obs.get("last_action_feedback", "")
-        dispatches = {k: v for k, v in
-                      action_data.get("dispatch_decisions", {}).items() if v == 1}
-        if dispatches or any(k in fb for k in ["READY", "ARRIVED", "DELIVERED", "FAILED"]):
-            icon = "✅" if score >= 0.9 else ("🟡" if score > 0.4 else "")
-            print(f"  min{minute:02d}: {fb[:100]}  {icon}")
+        # ── Required structured output: STEP ──
+        print(
+            f"[STEP] step={step_num} reward={reward:.4f} score={score:.4f} "
+            f"done={'true' if done else 'false'}",
+            flush=True,
+        )
 
-        if obs.get("done", False):
-            final = obs.get("score", 0.0)
-            best_score = max(best_score, final)
-            print(f"\n  ── Final score: {final:.2f} ──")
+        if done:
+            best_score = max(best_score, score)
             break
+
+    # ── Required structured output: END ──
+    print(f"[END] task={task_id} score={best_score:.4f} steps={step_num}", flush=True)
 
     return best_score
 
@@ -227,20 +228,8 @@ def main():
     args = parser.parse_args()
 
     if not API_KEY:
-        print("ERROR: Set HF_TOKEN environment variable", file=sys.stderr)
+        print("ERROR: Set HF_TOKEN environment variable", file=sys.stderr, flush=True)
         sys.exit(1)
-
-    print("=" * 62)
-    print("  KitchenFlow-v1 — Ghost Kitchen Dispatcher Baseline")
-    print("=" * 62)
-    print(f"  Model  : {MODEL_NAME}")
-    print(f"  Env URL: {args.url}")
-    print()
-    print("  Baseline comparison (80% threshold heuristic):")
-    print("    T1 easy   → 1.00")
-    print("    T2 medium → 0.96")
-    print("    T3 hard   → 0.84")
-    print("    Average   → 0.93")
 
     llm = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     env = EnvClient(args.url)
@@ -253,29 +242,16 @@ def main():
         try:
             scores[tid] = run_task(llm, env, tid)
         except Exception as exc:
-            print(f"\n  ERROR on {tid}: {exc}")
+            # Still emit valid structured blocks even on error
+            print(f"[START] task={tid}", flush=True)
+            print(f"[STEP] step=1 reward=0.0 score=0.0 done=true", flush=True)
+            print(f"[END] task={tid} score=0.0 steps=1", flush=True)
             scores[tid] = 0.0
 
     elapsed = time.time() - start
     avg     = sum(scores.values()) / len(scores) if scores else 0.0
 
-    print(f"\n{'='*62}")
-    print("  RESULTS")
-    print(f"{'='*62}")
-    diff_map = {
-        "T1_single_order_dispatch":    "easy",
-        "T2_multi_order_coordination": "medium",
-        "T3_peak_hour_rush":           "hard",
-    }
-    for tid, s in scores.items():
-        bar  = "█" * int(s * 20)
-        diff = diff_map.get(tid, "")
-        print(f"  {tid:<35} {s:.2f}  [{diff}]")
-        print(f"    |{bar:<20}|")
-    print(f"  {'─'*55}")
-    print(f"  {'AVERAGE':<35} {avg:.2f}  (baseline: 0.93)")
-    print(f"\n  Completed in {elapsed:.1f}s")
-    print(f"{'='*62}")
+    print(f"\nAverage score: {avg:.4f} | Time: {elapsed:.1f}s", flush=True)
     sys.exit(0 if avg > 0 else 1)
 
 
