@@ -1,0 +1,7 @@
+name: kitchenflow-v1
+description: AI-powered kitchen flow environment
+tags:
+  - cooking
+  - ai
+entry_point: app.py
+sdk: docker
