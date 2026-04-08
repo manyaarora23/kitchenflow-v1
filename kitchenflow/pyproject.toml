@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-kitchenflow_env"
+version = "1.0.0"
+description = "KitchenFlow-v1 Ghost Kitchen Dispatcher for OpenEnv"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core>=0.2.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0", "openai>=1.0.0"]
+
+[project.scripts]
+server = "kitchenflow_env.server.app:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["kitchenflow_env", "kitchenflow_env.server"]
+package-dir = { 
+    "kitchenflow_env" = "kitchenflow_env", 
+    "kitchenflow_env.server" = "kitchenflow_env/server" 
+}
